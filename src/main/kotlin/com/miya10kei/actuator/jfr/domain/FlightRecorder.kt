@@ -1,9 +1,11 @@
 package com.miya10kei.actuator.jfr.domain
 
+import jdk.jfr.FlightRecorder
 import java.time.Duration
 import java.time.ZoneId
 import java.util.concurrent.ConcurrentHashMap
 import jdk.jfr.Recording as JfrRecording
+import jdk.jfr.FlightRecorder as JdkFlightRecorder
 
 class FlightRecorder {
 
@@ -17,9 +19,17 @@ class FlightRecorder {
 
   fun findRecording(id: Long): Recording? =
     this.recordings[id]
+      ?: JdkFlightRecorder.getFlightRecorder().recordings
+        .find { it.id == id }
+        ?.toRecording()
 
-  fun listRecordings(): List<Recording> =
-    this.recordings.values.toList()
+  fun listRecordings(): List<Recording> {
+    val recordings = this.recordings.values.toList()
+    val jdkRecordings = JdkFlightRecorder.getFlightRecorder().recordings
+      .filter { jdkRecord -> !recordings.any { it.id == jdkRecord.id } }
+      .map { it.toRecording() }
+    return (recordings + jdkRecordings).sortedBy { it.id }
+  }
 
   fun deleteRecording(id: Long) {
     this.recordings.remove(id)
